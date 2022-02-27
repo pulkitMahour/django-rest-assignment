@@ -1,3 +1,4 @@
+from django.shortcuts import redirect
 from django.http import HttpResponse
 from django.contrib.auth import login,authenticate,logout
 from django.contrib.auth.decorators import login_required
@@ -6,35 +7,33 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 
-from .serializers import CreatoionSerializers,UpdateSerializers,ListAllSerializers
+from .serializers import CreatoionSerializers,UpdateSerializers,ListAllSerializers,LoginSerializer
 from .models import Creations
 from datetime import datetime
 import datetime
 from itertools import chain
+
 # Create your views here.
 
-def user_login(request):
-	if request.method == 'POST':
-		username = request.POST['username']
-		password = request.POST['password']
-		user = authenticate(username=username,password=password)
-	
+class LoginView(generics.GenericAPIView):
+	serializer_class = LoginSerializer
+
+	def post(self, request):
+		data = request.data
+		username = data.get('username', '')
+		password = data.get('password', '')
+		user = authenticate(username=username, password=password)
+
 		if user:
-			if user.is_active:
-				login(request,user)
-				print("\n\n\n","after login",request,user,"\n\n\n")
-				return HttpResponse("log in")
-			else:
-				return HttpResponse("account not active")
-		else:
-			return HttpResponse("Invalid Account")
-	else:
-		return HttpResponse("Send cookie")
+			login(request,user)
+
+			return redirect('/')
+		return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 @login_required
 def user_logout(request):
 	logout(request)
-	return HttpResponse("logout")
+	return redirect('/')
 
 def area_vol(l,b,h):
 	area = 2*(l*b+b*h+h*l)
@@ -60,7 +59,7 @@ def get_average(new_area,new_vol,user):
 	area_avg = sum(area_lst)/len(area_lst)
 	vol_avg = sum(vol_lst)/len(vol_lst)
 	print("\n\n\n",vol_avg,area_avg,"\n\n\n")
-	if area_avg < 40 and vol_avg < 20:
+	if area_avg < 40 and vol_avg < 27:
 		return True
 	else:
 		return False
@@ -71,6 +70,7 @@ class AddApi(generics.CreateAPIView):
 	permission_classes = [IsAdminUser]
 
 	def create(self, request, *args,**kwargs):
+		print(request.user)
 		if box_limit(request.user):
 			area,volume = area_vol(request.data["length"],request.data["width"],request.data["height"])
 			if get_average(area,volume,request.user):
@@ -81,7 +81,7 @@ class AddApi(generics.CreateAPIView):
 		else:
 			return Response('Box Limit is full',status=status.HTTP_400_BAD_REQUEST)
 		
-class UpdateApi(generics.RetrieveUpdateDestroyAPIView):
+class UpdateApi(generics.UpdateAPIView):
 	queryset = Creations.objects.all()
 	serializer_class = UpdateSerializers
 	permission_classes = [IsAdminUser]
@@ -90,6 +90,12 @@ class UpdateApi(generics.RetrieveUpdateDestroyAPIView):
 		up_area,up_vol = area_vol(int(request.data["up_len"]),int(request.data["up_wid"]),int(request.data["up_hei"]))
 		request.data.update({'updator':request.user.id,'up_area':up_area,'up_vol':up_vol,'up_date':datetime.now()})
 		return super(UpdateApi, self).update(request, *args, **kwargs)
+
+
+class DeleteApi(generics.DestroyAPIView):
+	queryset = Creations.objects.all()
+	serializer_class = UpdateSerializers
+	permission_classes = [IsAdminUser]
 
 	def destroy(self, request, *args, **kwargs):
 		instance = self.get_object()

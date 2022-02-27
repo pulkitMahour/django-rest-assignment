@@ -1,11 +1,12 @@
 from rest_framework import serializers
 from .models import Creations
+from django.contrib.auth.models import User
 
 class CreatoionSerializers(serializers.ModelSerializer):
 	creator_name = serializers.CharField(source='creator.get_full_name',read_only=True)
 	class Meta:
 		model = Creations
-		fields = ['id','creator','length','width','height','area','volume','up_date','creator_name']
+		fields = ['creator','length','width','height','area','volume','up_date','creator_name']
 
 class UpdateSerializers(serializers.ModelSerializer):
 	class Meta:
@@ -39,7 +40,13 @@ class ListAllSerializers(serializers.ModelSerializer):
 		else:
 			return "Only available for staff users"
 
-	
+class LoginSerializer(serializers.ModelSerializer):
+	password = serializers.CharField(max_length=65, min_length=8, write_only=True, style={'input_type': 'password', 'placeholder': 'Password'})
+	username = serializers.CharField(max_length=255, min_length=2)
+
+	class Meta:
+		model = User
+		fields = ['username', 'password']
 
 
 
